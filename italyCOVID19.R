@@ -69,9 +69,9 @@ prettyNum(regionalPopulation, big.mark = ",")))
     mutate(infections = c(0, diff(confirmed)),
            recoveries = c(0, diff(recovered)),
            deaths = c(0, diff(dead)),
-           prevalence = confirmed - recovered - dead) %>%
+           prevalence = confirmed - recovered - deaths) %>%
     # Correct the prevalence column based on "the formula".
-    mutate(#prevalence = lag(prevalence) + infections - recoveries - deaths,
+    mutate(prevalence = lag(prevalence) + infections - recoveries - deaths,
            susceptible = mapply(sum,
                                 regionalPopulation,
                                 -infections,
@@ -79,6 +79,7 @@ prettyNum(regionalPopulation, big.mark = ",")))
                                 -deaths),
            .keep = "all") %>%
     slice(-1)
+  print(regionalCOVID19Data)
 }
 
 ## Define the function to solve the SIRD model.
@@ -86,12 +87,9 @@ sird <- function(t = seq(0, 90),
                  ## Cumulative value of the compartment at the outset of the
                  ## simulation.
                  susceptible = 499,
-                 prevalence = 1,
                  confirmed = 1,
                  recovered = 0,
                  dead = 0,
-                 deaths = 0,
-                 recoveries = 0,
 
                  ## Parameters
                  beta = 5e-3,
@@ -100,7 +98,7 @@ sird <- function(t = seq(0, 90),
   lsoda(
     c(
       S = susceptible,
-      I = prevalence, #confirmed,
+      I = confirmed,
       R = recovered,
       D = dead
     ),
@@ -117,10 +115,10 @@ sird <- function(t = seq(0, 90),
       #   βSIN <- beta * S * I / N
       #   γI <- gamma * I
       #   δI <- delta * I
-      #   list(c(-βSIN,          # dS/dt
+      #   list(c(-βSIN, # dS/dt
       #          βSIN - γI - δI, # dI/dt
-      #          γI,             # dR/dt
-      #          δI),            # dD/dt
+      #          γI, # dR/dt
+      #          δI), # dD/dt
       #        population = N)
       # })
       N <- y[1] + y[2] + y[3]
@@ -138,8 +136,7 @@ sird <- function(t = seq(0, 90),
   as.data.frame() %>%
   as_tibble() %>%
   rename(susceptible = S,
-         prevalence = I,
-         #confirmed = I,
+         confirmed = I,
          recovered = R,
          dead = D,
          population = population.S)
@@ -147,20 +144,16 @@ sird <- function(t = seq(0, 90),
 
 ## The observed, cumulative numbers.
 observed <- covid19.regional() %>%
-  select(susceptible, confirmed, recovered, dead, prevalence, deaths, recoveries, deaths)
-
-observed
+  select(susceptible, confirmed, recovered, dead)
 
 expected <- select(do.call(sird, first(observed)),
                    !c(time, population))
-
-expected
 
 ## FIXME: `optimx` hates this, and refuses to run when the square of the
 ## differences is used.
 objfun <- function(par) {
   expected <- do.call(sird, as.list(par))
-  ##sum((observed$prevalence - expected$prevalence)^2, na.rm = TRUE)
+  ## sum((observed - expected)^2, na.rm = TRUE)
   sum(observed^2, -(expected^2), na.rm = TRUE)
 }
 
@@ -178,26 +171,20 @@ parameterEstimates <-
     lower = c(0, 0, 0)
   )
 
-parameterEstimates
-
 fitted <-
   with(first(observed),
        sird(susceptible = susceptible,
-            prevalence = prevalence,
             confirmed = confirmed,
             recovered = recovered,
             dead = dead,
-            deaths = deaths,
-            recoveries = recoveries,
             beta = parameterEstimates$beta,
             gamma = parameterEstimates$gamma,
-            delta = parameterEstimates$delta)) #%>%
+            delta = parameterEstimates$delta)) %>%
   ## FIXME: I have ABSOLUTLEY no idea why confirmed isn't the cumulative sum
   ## here, because the value returned by `sird` should be the cumulative sum! It
   ## is for expected! That's what I programmed! What?!
-  #mutate(confirmed = cumsum(confirmed))
+  mutate(confirmed = cumsum(confirmed))
 
-fitted
 
 # Ashok's plotting code ---------------------------------------------------
 stopifnot(nrow(observed) == nrow(fitted))
@@ -210,7 +197,7 @@ plotData <-
     observed_I = observed$confirmed,
     observed_R = observed$recovered,
     observed_D = observed$dead,
-    fitted_I = fitted$prevalence, #fitted$confirmed,
+    fitted_I = fitted$confirmed,
     fitted_R = fitted$recovered,
     fitted_D = fitted$dead
   )
@@ -225,7 +212,7 @@ plot(
   xlab = "Time",
   ylab = "Compartment Size",
   main = "IRD Epidemic Compartments",
-  ## MAYBE FIXME: if the sum of suceptible, confirmed, recovered, and dead is
+  ## MAYBE FIXME: if the sum of susceptible, confirmed, recovered, and dead is
   ## used then the population is inflated... why?
   ylim = c(0, summarize(first(covid19.regional()),
                         population = sum(susceptible,
@@ -263,3 +250,5 @@ p3 <- ggplot(plotData, aes(x = date)) +
 p3
 
 grid.arrange(p1, p2, p3, ncol = 1)
+
+## Here is some non-destructive edits to this file.
