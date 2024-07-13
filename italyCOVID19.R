@@ -26,10 +26,7 @@ subregion <- "Lombardia"
 startDate <- as.Date("2020-08-31")
 endDate <- as.Date("2020-11-30")
 
-covid19.regional <- function(country = country,
-                             subregion = subregion,
-                             startDate = startDate,
-                             endDate = endDate) {
+covid19.regional <- function(country, subregion, startDate, endDate) {
   if (!country %in% countryNamesInEnglish)
     errorCondition(paste("Argument `country` was not given in English,",
                          "or is not a recognized country."))
@@ -99,7 +96,7 @@ observed
 
 print(observed, n = dim(observed)[1])
 
-# Define the SIRD model
+# Define the mean field SIRD model
 SIRD <- function(time, state, parameters) {
   with(as.list(c(state, parameters)), {
     N <- S + I + R
@@ -236,6 +233,37 @@ ggplot() +
   geom_hline(yintercept = min(observed$dead), color = "black") +
   geom_vline(xintercept = min(observed$date), color = "black") +
   labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Dead") +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+
+# Run the SIRD model with the optimized parameters for 1 year
+
+oneYear <- seq(1, nrow(observed)*4, by = 1)
+
+# Solve the SIRD model with the optimized parameters
+outoneYear <- lsoda(y = init, times = oneYear, func = SIRD, parms = opt_params)
+outoneYear
+
+# Convert the output to a data frame for plotting
+outoneYear <- as.data.frame(outoneYear)
+
+# Plot the results
+
+ggplot() +
+  geom_line(data = outoneYear, aes(x = oneYear, y = S), color = "blue", linetype = "solid", size = 1.2) +
+  geom_line(data = outoneYear, aes(x = oneYear, y = I), color = "black", linetype = "solid", size = 1.2) +
+  geom_line(data = outoneYear, aes(x = oneYear, y = R), color = "darkgreen", linetype = "solid", size = 1.2) +
+  geom_line(data = outoneYear, aes(x = oneYear, y = D), color = "red", linetype = "solid", size = 1.2) +
+  geom_hline(yintercept = min(outoneYear$I), color = "black") +
+  geom_vline(xintercept = 0, color = "black") +
+  labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Comparment Size") +
   theme_minimal() +
   theme(
     axis.title.x = element_text(face = "bold"),
