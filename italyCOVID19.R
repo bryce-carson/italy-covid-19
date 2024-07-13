@@ -21,10 +21,15 @@ countryNamesInEnglish <- unique(countryname_dict[, 1])
 ## category.
 covid19 <- memoise(COVID19::covid19)
 
-covid19.regional <- function(country = "Italy",
-                             subregion = "Lombardia",
-                             startDate = as.Date("2020-08-31"),
-                             endDate = as.Date("2020-11-30")) {
+country <- "Italy"
+subregion <- "Lombardia"
+startDate <- as.Date("2020-08-31")
+endDate <- as.Date("2020-11-30")
+
+covid19.regional <- function(country = country,
+                             subregion = subregion,
+                             startDate = startDate,
+                             endDate = endDate) {
   if (!country %in% countryNamesInEnglish)
     errorCondition(paste("Argument `country` was not given in English,",
                          "or is not a recognized country."))
@@ -84,7 +89,10 @@ print(prettyNum(regionalPopulation, big.mark = ","))
     slice(-1)
 }
 
-observed <- covid19.regional() %>%
+observed <- covid19.regional(country = country,
+                             subregion = subregion,
+                             startDate = startDate,
+                             endDate = endDate) %>%
   select(susceptible, confirmed, recovered, dead, prevalence, deaths, newRecovered, date)
 
 observed
@@ -104,7 +112,10 @@ SIRD <- function(time, state, parameters) {
 }
 
 # Initial state values
-init <- c(S = observed$susceptible[1], I = observed$prevalence[1], R = observed$recovered[1], D = observed$dead[1])
+init <- c(S = first(observed$susceptible),
+          I = first(observed$prevalence),
+          R = first(observed$recovered),
+          D = first(observed$dead))
 
 # Time vector
 times <- seq(1, nrow(observed), by = 1)
@@ -192,7 +203,7 @@ ggplot() +
   geom_line(data = output, aes(x = date, y = I), color = "blue", linetype = "dotdash", linewidth = 1.2) +
   geom_hline(yintercept = min(observed$prevalence), color = "black") +
   geom_vline(xintercept = min(observed$date), color = "black") +
-  labs(title = "SIRD Model Fit to COVID-19 Data", x = "Date", y = "Active Cases") +
+  labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Active Cases") +
   theme_minimal() +
   theme(
     axis.title.x = element_text(face = "bold"),
@@ -208,7 +219,7 @@ ggplot() +
   geom_line(data = output, aes(x = date, y = R), color = "blue", linetype = "dotdash", linewidth = 1.2) +
   geom_hline(yintercept = min(observed$recovered), color = "black") +
   geom_vline(xintercept = min(observed$date), color = "black") +
-  labs(title = "SIRD Model Fit to COVID-19 Data", x = "Date", y = "Recovered") +
+  labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Recovered") +
   theme_minimal() +
   theme(
     axis.title.x = element_text(face = "bold"),
@@ -224,7 +235,7 @@ ggplot() +
   geom_line(data = output, aes(x = date, y = D), color = "blue", linetype = "dotdash", linewidth = 1.2) +
   geom_hline(yintercept = min(observed$dead), color = "black") +
   geom_vline(xintercept = min(observed$date), color = "black") +
-  labs(title = "SIRD Model Fit to COVID-19 Data", x = "Date", y = "Dead") +
+  labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Dead") +
   theme_minimal() +
   theme(
     axis.title.x = element_text(face = "bold"),
