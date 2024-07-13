@@ -1,2 +1,2 @@
 # italy-covid-19
-The Italian COVID-19 epidemic project Ashok asked me to work on.
+![Italy_map_with_provinces svg](https://github.com/user-attachments/assets/ac0774f0-4a50-4134-b188-ef1545ea2f20)
