@@ -126,10 +126,15 @@ initial_guesses <- list(
   c(beta = 0.5, gamma = 0.05, delta = 0.03)
 )
 
+# Tighter and more realistic bounds
+lower_bounds <- c(beta = 0.001, gamma = 0.001, delta = 0.0001)
+upper_bounds <- c(beta = 1, gamma = 0.5, delta = 0.1)
+
 fit_optimization <- function(init_params) {
   fit <- tryCatch(
     {
-      optim(par = init_params, fn = RSS, method = "L-BFGS-B", lower = c(0, 0, 0), upper = c(1, 1, 1))
+      #optim(par = init_params, fn = RSS, method = "L-BFGS-B", lower = c(0, 0, 0), upper = c(1, 1, 1))
+      optim(par = init_params, fn = RSS, method = "L-BFGS-B", lower = lower_bounds, upper = upper_bounds)
     },
     error = function(e) {
       message("Optimization error: ", e)
@@ -157,10 +162,8 @@ if (is.null(opt_params)) {
 # Print the best-fit parameters
 opt_params
 
-# Strangely returns a delta of 0.00000000
-
-# beta      gamma       delta 
-# 0.06565431 0.02738994 0.00000000 
+# beta       gamma      delta 
+# 0.06573343 0.02737643 0.00010000
 
 # The Basic Reproduction Number (R0) for an SIRD model
 # R0 = beta/(gamma + delta)
@@ -168,7 +171,7 @@ opt_params
 R0 <- opt_params[[1]]/(opt_params[[2]]+opt_params[[3]])
 R0
 
-opt_params[[3]] <- 0.001 # I have reset delta to a non-zero value
+opt_params[[3]] <- 0.001 # I have reset delta to a different value. 
 
 R0 <- opt_params[[1]]/(opt_params[[2]]+opt_params[[3]])
 R0
