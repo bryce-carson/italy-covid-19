@@ -14,41 +14,71 @@ observationsItaly <- suppressMessages(list(
 observed <- observationsItaly$Lombardia
  
 # Plot daily cases (Incidence)
-ggplot(observed, aes(x = date, y = newCases)) +
+plot_Incidence <- ggplot(observed, aes(x = date, y = newCases)) +
   geom_line(color = "blue", linewidth = 1.2) +
   labs(title = paste0("Daily Cases in ", subregion, ", ", country), x = "Date", y = "Daily Cases") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   ashokTheme
 
+plot_Incidence
+
 # Plot Prevalence (Active cases)
-ggplot(observed, aes(x = date, y = prevalence)) +
+plot_Prevalence <- ggplot(observed, aes(x = date, y = prevalence)) +
   geom_line(color = "black", linewidth = 1.2) +
   labs(title = paste0("Prevalence in ", subregion, ", ", country), x = "Date", y = "Prevalence") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   ashokTheme
 
+plot_Prevalence
+
 # Plot daily recovered
-ggplot(observed, aes(x = date, y = newRecovered)) +
+plot_newRecovered <- ggplot(observed, aes(x = date, y = newRecovered)) +
   geom_line(color = "darkgreen", linewidth = 1.2) +
   labs(title = paste0("Daily Recovered in ", subregion, ", ", country), x = "Date", y = "Daily Recovered") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   ashokTheme
 
+plot_newRecovered
+
 # Plot daily deaths
-ggplot(observed, aes(x = date, y = newDead)) +
+plot_newDead <- ggplot(observed, aes(x = date, y = newDead)) +
   geom_line(color = "red", linewidth = 1.2) +
   labs(title = paste0("Daily Deaths in ", subregion, ", ", country), x = "Date", y = "Daily Deaths") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   ashokTheme
 
-## NOTE: `names(object) <- characterVector` is like any other left-hand sided
-## function in R, it's just a function, so call it direclty to save ourselves
-## from making a superfluous assignment to then enable ourselves to call
-## `names<-`; just call it directly.
-initialStateValues <- first(observed) %>%
-  select(susceptible, prevalence, recovered, dead) %>%
-  as.vector() %>%
-  `names<-`(c("S", "I", "R", "D"))
+plot_newDead
+
+# Define the mean field SIRD model
+SIRD <- function(time, state, parameters) {
+  with(as.list(c(state, parameters)), {
+    N <- S + I + R
+    dS <- -beta * S * I / N
+    dI <- beta * S * I / N - gamma * I - delta * I
+    dR <- gamma * I
+    dD <- delta * I
+    list(c(dS, dI, dR, dD))
+  })
+}
+
+# Time vector
+times <- seq(1, nrow(observed), by = 1)
+
+# Initial state values
+init <- c(S = first(observed$susceptible),
+          I = first(observed$prevalence),
+          R = first(observed$recovered),
+          D = first(observed$dead))
+
+# Objective function to minimize the residual sum of squares (RSS)
+RSS <- function(parameters) {
+  names(parameters) <- c("beta", "gamma", "delta")
+  out <- lsoda(y = init, times = times, func = SIRD, parms = parameters)
+  sum(#(observed$susceptible - out[, "S"])^2 +
+        (observed$prevalence - out[, "I"])^2 +
+        (observed$recovered - out[, "R"])^2 +
+        (observed$dead - out[, "D"])^2)
+}
 
 # Initial guesses for parameters
 initial_guesses <- list(
@@ -90,7 +120,7 @@ R0
 # R0
 
 # Solve the SIRD model with the optimized parameters
-out <- lsoda(y = initialStateValues, times = 1:365, func = SIRD, parms = opt_params)
+out <- lsoda(y = init, times = times, func = SIRD, parms = opt_params)
 out
 
 # Convert the output to a data frame for plotting
@@ -98,6 +128,7 @@ output <- as.data.frame(out)
 output$date <- observed$date
 
 # Plot the results
+
 # Plot 1: Prevalence and I (Infected)
 ggplot() +
   geom_line(data = observed, aes(x = date, y = prevalence), color = "black", linetype = "solid", linewidth = 1.2) +
@@ -125,7 +156,7 @@ ggplot() +
 # Run the SIRD model with the optimized parameters for 1 year
 oneYear <- seq(1, 365, by = 1)
 
-outoneYear <- lsoda(y = initialStateValues, times = oneYear, func = SIRD, parms = opt_params)
+outoneYear <- lsoda(y = init, times = oneYear, func = SIRD, parms = opt_params)
 outoneYear <- as.data.frame(outoneYear)
 
 outoneYear_long <- outoneYear %>%
