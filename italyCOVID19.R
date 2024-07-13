@@ -1,91 +1,3 @@
-library(tidyverse)
-library(magrittr)
-library(COVID19)
-library(deSolve)
-library(optimx)
-library(countrycode)
-library(gridExtra)
-
-## Used to cache function results from covid19, so data is only downloaded once
-## without needing to assign it to an object ourselves.
-library(memoise)
-
-source("ashok_ggplot_theme.R")
-
-countryNamesInEnglish <- unique(countryname_dict[, 1])
-
-## https://covid19datahub.io/articles/docs.html#epidemiological-variables
-##
-## All variables are cumulative except hosp, icu, vent, and population;
-## population is the total population as of a census date, and does not change,
-## the prior variables are the number of patients on that date in that
-## category.
-covid19 <- memoise(COVID19::covid19)
-
-covid19.regional <- function(country = "Italy",
-                             subregion = "Lombardia",
-                             startDate = as.Date("2020-08-31"),
-                             endDate = as.Date("2020-11-30")) {
-  if (!country %in% countryNamesInEnglish)
-    errorCondition(paste("Argument `country` was not given in English,",
-                         "or is not a recognized country."))
-  
-  message("`country` was valid; assuming all other arguments are valid.")
-  
-  regionalCOVID19Data <-
-    covid19(country, 2, startDate, endDate, verbose = FALSE) %>%
-    select(date,
-           confirmed,
-           deaths,
-           recovered,
-           administrative_area_level_2,
-           key_gadm,
-           population) %>%
-    rename(
-      region = administrative_area_level_2,
-      GADM = key_gadm
-    ) %>%
-    filter(region == subregion) %>%
-    mutate(date = as.Date(date)) %>%
-    arrange(date)
-  
-  if(nrow(regionalCOVID19Data) == 0) {
-    errorCondition("No data available for selected region.")
-  }
-  
-  regionalPopulation <- first(regionalCOVID19Data$population)
-  
-  message(sprintf(r"[Spatial information:
-  Country = %s
-  Region = %s
-  GADM = %s
-  Region population = %s]",
-  country,
-  subregion,
-  first(regionalCOVID19Data$GADM),
-  prettyNum(regionalPopulation, big.mark = ",")))
-
-  as_tibble(regionalCOVID19Data) %>%
-    select(date, confirmed, deaths, recovered) %>%
-    rename(dead = deaths) %>%
-    mutate(newCases = c(0, diff(confirmed)),
-           newRecovered = c(0, diff(recovered)),
-           newDead = c(0, diff(dead)),
-           prevalence = confirmed - recovered - dead) %>%
-    # Correct the prevalence column based on "the formula".
-    mutate(prevalence = lag(prevalence) + newCases - newRecovered - newDead,
-           susceptible = mapply(sum,
-                                regionalPopulation,
-                                -prevalence,
-                                -recovered,
-                                -dead),
-           .keep = "all") %>%
-    slice(-1) %>% # drop the first row.
-    select(date,
-           susceptible, confirmed, recovered, dead,
-           prevalence, newCases, newDead, newRecovered)
-}
-
 ## These data are for the provinces of Italy we are interested in at present.
 ## When we want to study other provinces we can add them to this list. Lombardia
 ## is the default province and Italy is the default country for this customized
@@ -102,71 +14,41 @@ observationsItaly <- suppressMessages(list(
 observed <- observationsItaly$Lombardia
  
 # Plot daily cases (Incidence)
-plot_Incidence <- ggplot(observed, aes(x = date, y = newCases)) +
+ggplot(observed, aes(x = date, y = newCases)) +
   geom_line(color = "blue", linewidth = 1.2) +
   labs(title = paste0("Daily Cases in ", subregion, ", ", country), x = "Date", y = "Daily Cases") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   ashokTheme
 
-plot_Incidence
-
 # Plot Prevalence (Active cases)
-plot_Prevalence <- ggplot(observed, aes(x = date, y = prevalence)) +
+ggplot(observed, aes(x = date, y = prevalence)) +
   geom_line(color = "black", linewidth = 1.2) +
   labs(title = paste0("Prevalence in ", subregion, ", ", country), x = "Date", y = "Prevalence") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   ashokTheme
 
-plot_Prevalence
-
 # Plot daily recovered
-plot_newRecovered <- ggplot(observed, aes(x = date, y = newRecovered)) +
+ggplot(observed, aes(x = date, y = newRecovered)) +
   geom_line(color = "darkgreen", linewidth = 1.2) +
   labs(title = paste0("Daily Recovered in ", subregion, ", ", country), x = "Date", y = "Daily Recovered") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   ashokTheme
 
-plot_newRecovered
-
 # Plot daily deaths
-plot_newDead <- ggplot(observed, aes(x = date, y = newDead)) +
+ggplot(observed, aes(x = date, y = newDead)) +
   geom_line(color = "red", linewidth = 1.2) +
   labs(title = paste0("Daily Deaths in ", subregion, ", ", country), x = "Date", y = "Daily Deaths") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   ashokTheme
 
-plot_newDead
-
-# Define the mean field SIRD model
-SIRD <- function(time, state, parameters) {
-  with(as.list(c(state, parameters)), {
-    N <- S + I + R
-    dS <- -beta * S * I / N
-    dI <- beta * S * I / N - gamma * I - delta * I
-    dR <- gamma * I
-    dD <- delta * I
-    list(c(dS, dI, dR, dD))
-  })
-}
-
-# Time vector
-times <- seq(1, nrow(observed), by = 1)
-
-# Initial state values
-init <- c(S = first(observed$susceptible),
-          I = first(observed$prevalence),
-          R = first(observed$recovered),
-          D = first(observed$dead))
-
-# Objective function to minimize the residual sum of squares (RSS)
-RSS <- function(parameters) {
-  names(parameters) <- c("beta", "gamma", "delta")
-  out <- lsoda(y = init, times = times, func = SIRD, parms = parameters)
-  sum(#(observed$susceptible - out[, "S"])^2 +
-        (observed$prevalence - out[, "I"])^2 +
-        (observed$recovered - out[, "R"])^2 +
-        (observed$dead - out[, "D"])^2)
-}
+## NOTE: `names(object) <- characterVector` is like any other left-hand sided
+## function in R, it's just a function, so call it direclty to save ourselves
+## from making a superfluous assignment to then enable ourselves to call
+## `names<-`; just call it directly.
+initialStateValues <- first(observed) %>%
+  select(susceptible, prevalence, recovered, dead) %>%
+  as.vector() %>%
+  `names<-`(c("S", "I", "R", "D"))
 
 # Initial guesses for parameters
 initial_guesses <- list(
@@ -178,25 +60,6 @@ initial_guesses <- list(
 # Tighter and more realistic bounds
 lower_bounds <- c(beta = 0.001, gamma = 0.001, delta = 0.0001)
 upper_bounds <- c(beta = 1, gamma = 0.5, delta = 0.1)
-
-fit_optimization <- function(init_params) {
-  fit <- tryCatch(
-    {
-      #optim(par = init_params, fn = RSS, method = "L-BFGS-B", lower = c(0, 0, 0), upper = c(1, 1, 1))
-      optim(par = init_params, fn = RSS, method = "L-BFGS-B", lower = lower_bounds, upper = upper_bounds)
-    },
-    error = function(e) {
-      message("Optimization error: ", e)
-      NULL
-    }
-  )
-  
-  if (!is.null(fit) && fit$convergence == 0) {
-    return(fit$par)
-  } else {
-    return(NULL)
-  }
-}
 
 opt_params <- NULL
 
@@ -227,7 +90,7 @@ R0
 # R0
 
 # Solve the SIRD model with the optimized parameters
-out <- lsoda(y = init, times = times, func = SIRD, parms = opt_params)
+out <- lsoda(y = initialStateValues, times = 1:365, func = SIRD, parms = opt_params)
 out
 
 # Convert the output to a data frame for plotting
@@ -235,7 +98,6 @@ output <- as.data.frame(out)
 output$date <- observed$date
 
 # Plot the results
-
 # Plot 1: Prevalence and I (Infected)
 ggplot() +
   geom_line(data = observed, aes(x = date, y = prevalence), color = "black", linetype = "solid", linewidth = 1.2) +
@@ -263,7 +125,7 @@ ggplot() +
 # Run the SIRD model with the optimized parameters for 1 year
 oneYear <- seq(1, 365, by = 1)
 
-outoneYear <- lsoda(y = init, times = oneYear, func = SIRD, parms = opt_params)
+outoneYear <- lsoda(y = initialStateValues, times = oneYear, func = SIRD, parms = opt_params)
 outoneYear <- as.data.frame(outoneYear)
 
 outoneYear_long <- outoneYear %>%
