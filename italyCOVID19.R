@@ -225,7 +225,7 @@ plot(
   xlab = "Time",
   ylab = "Compartment Size",
   main = "IRD Epidemic Compartments",
-  ## MAYBE FIXME: if the sum of suceptible, confirmed, recovered, and dead is
+  ## MAYBE FIXME: if the sum of susceptible, confirmed, recovered, and dead is
   ## used then the population is inflated... why?
   ylim = c(0, summarize(first(covid19.regional()),
                         population = sum(susceptible,
