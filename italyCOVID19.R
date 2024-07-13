@@ -5,11 +5,12 @@ library(deSolve)
 library(optimx)
 library(countrycode)
 library(gridExtra)
-library(ggplot2)
 
 ## Used to cache function results from covid19, so data is only downloaded once
 ## without needing to assign it to an object ourselves.
 library(memoise)
+
+source("ashok_ggplot_theme.R")
 
 countryNamesInEnglish <- unique(countryname_dict[, 1])
 
@@ -22,7 +23,7 @@ countryNamesInEnglish <- unique(countryname_dict[, 1])
 covid19 <- memoise(COVID19::covid19)
 
 country <- "Italy"
-subregion <- "Lombardia" # "Campania" #  "Lazio" # 
+subregion <- c("Lombardia", "Campania", "Lazio")[1]
 startDate <- as.Date("2020-08-31")
 endDate <- as.Date("2020-11-30")
 
@@ -66,8 +67,6 @@ covid19.regional <- function(country, subregion, startDate, endDate) {
   first(regionalCOVID19Data$GADM),
   prettyNum(regionalPopulation, big.mark = ",")))
 
-#print(prettyNum(regionalPopulation, big.mark = ","))
-
   as_tibble(regionalCOVID19Data) %>%
     select(date, confirmed, deaths, recovered) %>%
     rename(dead = deaths) %>%
@@ -77,94 +76,53 @@ covid19.regional <- function(country, subregion, startDate, endDate) {
            prevalence = confirmed - recovered - dead) %>%
     # Correct the prevalence column based on "the formula".
     mutate(prevalence = lag(prevalence) + newCases - newRecovered - newDead,
-      susceptible = mapply(sum,
-                           regionalPopulation,
-                           -prevalence,
-                           -recovered,
-                           -dead),
-      .keep = "all") %>%
-    slice(-1)
+           susceptible = mapply(sum,
+                                regionalPopulation,
+                                -prevalence,
+                                -recovered,
+                                -dead),
+           .keep = "all") %>%
+    slice(-1) %>% # drop the first row.
+    select(date,
+           susceptible, confirmed, recovered, dead,
+           prevalence, newCases, newDead, newRecovered)
 }
 
-observed <- covid19.regional(country = country,
-                             subregion = subregion,
-                             startDate = startDate,
-                             endDate = endDate) %>%
-  select(date, susceptible, confirmed, recovered, dead, prevalence, newCases, newDead, newRecovered)
-
-observed
-
-#print(observed, n = dim(observed)[1])
-
+observed <- suppressMessages(covid19.regional(country, subregion, startDate, endDate))
+ 
 # Plot daily cases (Incidence)
 plot_Incidence <- ggplot(observed, aes(x = date, y = newCases)) +
   geom_line(color = "blue", linewidth = 1.2) +
-  geom_hline(yintercept = min(observed$newCases), color = "black") +
-  geom_vline(xintercept = min(observed$date), color = "black") +
   labs(title = paste0("Daily Cases in ", subregion, ", ", country), x = "Date", y = "Daily Cases") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
-  theme_minimal() +
-  theme(
-    axis.title.x = element_text(face = "bold"),
-    axis.title.y = element_text(face = "bold"),
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-  )
+  ashokTheme
 
 plot_Incidence
 
 # Plot Prevalence (Active cases)
 plot_Prevalence <- ggplot(observed, aes(x = date, y = prevalence)) +
   geom_line(color = "black", linewidth = 1.2) +
-  geom_hline(yintercept = min(observed$prevalence), color = "black") +
-  geom_vline(xintercept = min(observed$date), color = "black") +
   labs(title = paste0("Prevalence in ", subregion, ", ", country), x = "Date", y = "Prevalence") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
-  theme_minimal() +
-  theme(
-    axis.title.x = element_text(face = "bold"),
-    axis.title.y = element_text(face = "bold"),
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-  )
+  ashokTheme
 
 plot_Prevalence
 
 # Plot daily recovered
 plot_newRecovered <- ggplot(observed, aes(x = date, y = newRecovered)) +
   geom_line(color = "darkgreen", linewidth = 1.2) +
-  geom_hline(yintercept = min(observed$newRecovered), color = "black") +
-  geom_vline(xintercept = min(observed$date), color = "black") +
   labs(title = paste0("Daily Recovered in ", subregion, ", ", country), x = "Date", y = "Daily Recovered") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
-  theme_minimal() +
-  theme(
-    axis.title.x = element_text(face = "bold"),
-    axis.title.y = element_text(face = "bold"),
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-  )
+  ashokTheme
 
 plot_newRecovered
 
 # Plot daily deaths
 plot_newDead <- ggplot(observed, aes(x = date, y = newDead)) +
   geom_line(color = "red", linewidth = 1.2) +
-  geom_hline(yintercept = min(observed$newDead), color = "black") +
-  geom_vline(xintercept = min(observed$date), color = "black") +
   labs(title = paste0("Daily Deaths in ", subregion, ", ", country), x = "Date", y = "Daily Deaths") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
-  theme_minimal() +
-  theme(
-    axis.title.x = element_text(face = "bold"),
-    axis.title.y = element_text(face = "bold"),
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-  )
+  ashokTheme
 
 plot_newDead
 
@@ -271,52 +229,25 @@ output$date <- observed$date
 ggplot() +
   geom_line(data = observed, aes(x = date, y = prevalence), color = "black", linetype = "solid", linewidth = 1.2) +
   geom_line(data = output, aes(x = date, y = I), color = "blue", linetype = "dotdash", linewidth = 1.2) +
-  geom_hline(yintercept = min(observed$prevalence), color = "black") +
-  geom_vline(xintercept = min(observed$date), color = "black") +
   labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Prevalence") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
-  theme_minimal() +
-  theme(
-    axis.title.x = element_text(face = "bold"),
-    axis.title.y = element_text(face = "bold"),
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-  )
+  ashokTheme
 
 # Plot 2: Recovered and R (Recovered)
 ggplot() +
   geom_line(data = observed, aes(x = date, y = recovered), color = "darkgreen", linetype = "solid", linewidth = 1.2) +
   geom_line(data = output, aes(x = date, y = R), color = "blue", linetype = "dotdash", linewidth = 1.2) +
-  geom_hline(yintercept = min(observed$recovered), color = "black") +
-  geom_vline(xintercept = min(observed$date), color = "black") +
   labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Recovered") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
-  theme_minimal() +
-  theme(
-    axis.title.x = element_text(face = "bold"),
-    axis.title.y = element_text(face = "bold"),
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-  )
+  ashokTheme
 
 # Plot 3: Dead and D (Dead)
 ggplot() +
   geom_line(data = observed, aes(x = date, y = dead), color = "red", linetype = "solid", linewidth = 1.2) +
   geom_line(data = output, aes(x = date, y = D), color = "blue", linetype = "dotdash", linewidth = 1.2) +
-  geom_hline(yintercept = min(observed$dead), color = "black") +
-  geom_vline(xintercept = min(observed$date), color = "black") +
   labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Dead") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
-  theme_minimal() +
-  theme(
-    axis.title.x = element_text(face = "bold"),
-    axis.title.y = element_text(face = "bold"),
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-  )
+  ashokTheme
 
 # Run the SIRD model with the optimized parameters for 1 year
 oneYear <- seq(1, 365, by = 1)
@@ -332,36 +263,28 @@ outoneYear_long$Compartment <- factor(outoneYear_long$Compartment, levels = c("S
 
 ggplot(outoneYear_long, aes(x = time, y = Value, color = Compartment)) +
   geom_line(linewidth = 1.2) +
-  geom_hline(yintercept = min(outoneYear$I), color = "black") +
-  geom_vline(xintercept = 0, color = "black") +
   scale_color_manual(values = c("S" = "blue", "I" = "black", "R" = "darkgreen", "D" = "red"),
                      labels = c("S" = "Susceptible", "I" = "Infected", "R" = "Recovered", "D" = "Dead")) +
   labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), 
        x = "Time (days)", y = "Compartment Size", color = "Compartment") +
-  theme_minimal() +
-  theme(
-    axis.title.x = element_text(face = "bold"),
-    axis.title.y = element_text(face = "bold"),
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-  )
+  ashokTheme
 
+## FIXME: Ashok wrote this, I don't know what it does. It doesn't work. It was commented.
 # observed_long <- observed %>% 
-#   select(-susceptible, -confirmed, -deaths, -newRecovered) %>% 
-#   pivot_longer(cols = -date, names_to = "compartment", values_to = "observed")
-# 
+  # select(-susceptible, -confirmed, -deaths, -newRecovered) %>% 
+  # pivot_longer(cols = -date, names_to = "compartment", values_to = "observed")
+
 # output_long <- output %>%
-#   select(-S, -time) %>%
-#   pivot_longer(cols = -date, names_to = "compartment", values_to = "predicted")
-# 
+  # select(-S, -time) %>%
+  # pivot_longer(cols = -date, names_to = "compartment", values_to = "predicted")
+
 # plot_data <- full_join(observed_long, output_long, by = c("date", "compartment"))
-# 
+
 # ggplot(plot_data, aes(x = date)) +
-#   geom_line(aes(y = observed, color = compartment), linewidth = 1.2) +
-#   geom_line(aes(y = predicted, color = compartment), linetype = "dashed", linewidth = 1.2) +
-#   labs(title = "SIRD Model Fit to COVID-19 Data",
-#        x = "Date",
-#        y = "Count",
-#        color = "Compartment") +
-#   theme_minimal()
+  # geom_line(aes(y = observed, color = compartment), linewidth = 1.2) +
+  # geom_line(aes(y = predicted, color = compartment), linetype = "dashed", linewidth = 1.2) +
+  # labs(title = "SIRD Model Fit to COVID-19 Data",
+       # x = "Date",
+       # y = "Count",
+       # color = "Compartment") +
+  # theme_minimal()
