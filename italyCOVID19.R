@@ -12,56 +12,48 @@ observationsItaly <- suppressMessages(list(
 ## Select a province under study by changing the component part following the
 ## extract operator.
 observed <- observationsItaly$Lombardia
- 
-# Plot daily cases (Incidence)
-plot_Incidence <- ggplot(observed, aes(x = date, y = newCases)) +
-  geom_line(color = "blue", linewidth = 1.2) +
-  labs(title = paste0("Daily Cases in ", subregion, ", ", country), x = "Date", y = "Daily Cases") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
-  ashokTheme
 
-plot_Incidence
+## This is just one way in which work can be organized: using lists. The
+## identifier `observedPlots` documents what data these plots are derived from,
+## and most text editors will allow you to collapse the list so that you can
+## ignore it once you're done with it.
+observedPlots <- list(
+  ## Plot daily cases (Incidence)
+  incidence = ggplot(observed, aes(x = date, y = newCases)) +
+    geom_line(color = "blue", linewidth = 1.2) +
+    labs(title = paste0("Daily Cases in %s, %s", subregion, country), x = "Date", y = "Daily Cases") +
+    scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
+    ashokTheme,
 
-# Plot Prevalence (Active cases)
-plot_Prevalence <- ggplot(observed, aes(x = date, y = prevalence)) +
-  geom_line(color = "black", linewidth = 1.2) +
-  labs(title = paste0("Prevalence in ", subregion, ", ", country), x = "Date", y = "Prevalence") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
-  ashokTheme
+  ## Plot Prevalence (Active cases)
+  prevalence = ggplot(observed, aes(x = date, y = prevalence)) +
+    geom_line(color = "black", linewidth = 1.2) +
+    labs(title = paste0("Prevalence in %s, %s", subregion, country), x = "Date", y = "Prevalence") +
+    scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
+    ashokTheme,
 
-plot_Prevalence
+  ## Plot daily recovered
+  newRecovered = ggplot(observed, aes(x = date, y = newRecovered)) +
+    geom_line(color = "darkgreen", linewidth = 1.2) +
+    labs(title = paste0("Daily Recovered in %s, %s", subregion, country), x = "Date", y = "Daily Recovered") +
+    scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
+    ashokTheme,
 
-# Plot daily recovered
-plot_newRecovered <- ggplot(observed, aes(x = date, y = newRecovered)) +
-  geom_line(color = "darkgreen", linewidth = 1.2) +
-  labs(title = paste0("Daily Recovered in ", subregion, ", ", country), x = "Date", y = "Daily Recovered") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
-  ashokTheme
+  ## Plot daily deaths
+  newDead = ggplot(observed, aes(x = date, y = newDead)) +
+    geom_line(color = "red", linewidth = 1.2) +
+    labs(title = paste0("Daily Deaths in %s, %s", subregion, country), x = "Date", y = "Daily Deaths") +
+    scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
+    ashokTheme
+)
 
-plot_newRecovered
+## View the plots by accessing them
+# observedPlots$incidence
+# observedPlots$prevalence
+# observedPlots$newRecovered
+# observedPlots$newDead
 
-# Plot daily deaths
-plot_newDead <- ggplot(observed, aes(x = date, y = newDead)) +
-  geom_line(color = "red", linewidth = 1.2) +
-  labs(title = paste0("Daily Deaths in ", subregion, ", ", country), x = "Date", y = "Daily Deaths") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
-  ashokTheme
-
-plot_newDead
-
-# Define the mean field SIRD model
-SIRD <- function(time, state, parameters) {
-  with(as.list(c(state, parameters)), {
-    N <- S + I + R
-    dS <- -beta * S * I / N
-    dI <- beta * S * I / N - gamma * I - delta * I
-    dR <- gamma * I
-    dD <- delta * I
-    list(c(dS, dI, dR, dD))
-  })
-}
-
-## A perfectly acceptable, "base R" way of accessing these.
+## A perfectly acceptable, "base R" way of accessing these values.
 init <- c(S = observed$susceptible[1],
           I = observed$prevalence[1],
           R = observed$recovered[1],
@@ -144,7 +136,7 @@ output$date <- observed$date
 ggplot() +
   geom_line(data = observed, aes(x = date, y = prevalence), color = "black", linetype = "solid", linewidth = 1.2) +
   geom_line(data = output, aes(x = date, y = I), color = "blue", linetype = "dotdash", linewidth = 1.2) +
-  labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Prevalence") +
+  labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, country), x = "Date", y = "Prevalence") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   ashokTheme
 
@@ -152,7 +144,7 @@ ggplot() +
 ggplot() +
   geom_line(data = observed, aes(x = date, y = recovered), color = "darkgreen", linetype = "solid", linewidth = 1.2) +
   geom_line(data = output, aes(x = date, y = R), color = "blue", linetype = "dotdash", linewidth = 1.2) +
-  labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Recovered") +
+  labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, country), x = "Date", y = "Recovered") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   ashokTheme
 
@@ -160,7 +152,7 @@ ggplot() +
 ggplot() +
   geom_line(data = observed, aes(x = date, y = dead), color = "red", linetype = "solid", linewidth = 1.2) +
   geom_line(data = output, aes(x = date, y = D), color = "blue", linetype = "dotdash", linewidth = 1.2) +
-  labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Dead") +
+  labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, country), x = "Date", y = "Dead") +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   ashokTheme
 
@@ -171,19 +163,43 @@ outoneYear <- as.data.frame(outoneYear)
 # Set the factor levels for the Compartment variable to ensure the desired order
 # outoneYear_long$Compartment <- factor(outoneYear_long$Compartment, levels = c("S", "I", "R", "D"))
 
-outoneYear_long <- outoneYear %>%
+## Because "outoneYear_long" isn't the most descriptive name, it makes more
+## sense to me to remove the name and simply pipe the dataframe on to ggplot
+## directly, since that is its only usage. While "out" is the "output" of an
+## earlier function, that's true of every function, so "out" isn't a great
+## identifier. Instead it makes more sense to name this for the input
+## parameters, the type of model the data contains, etc.
+## 
+## "_long" to indicate that the data has been transformed by `pivot_longer`
+## isn't bad, but it makes more sense to describe the semantics of the
+## dataframe's shape, rather than just it's shape (a long versus wide
+## rectangular dataframe).
+outoneYear %>%
   pivot_longer(cols = c(S, I, R, D),
                names_to = "Compartment",
                values_to = "Value") %>%
   ## The effect of the commented code above this pipeline can be achieved with
   ## the following much shorter expression, which takes advantage of the default
   ## functionality of the as.factor function.
-  mutate(Compartment = as.factor(Compartment))
-
-ggplot(outoneYear_long, aes(x = time, y = Value, color = Compartment)) +
-  geom_line(linewidth = 1.2) +
-  scale_color_manual(values = c("S" = "blue", "I" = "black", "R" = "darkgreen", "D" = "red"),
-                     labels = c("S" = "Susceptible", "I" = "Infected", "R" = "Recovered", "D" = "Dead")) +
-  labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), 
-       x = "Time (days)", y = "Compartment Size", color = "Compartment") +
-  ashokTheme
+  mutate(Compartment = as.factor(Compartment)) %>%
+  ggplot(aes(x = time,
+             y = Value
+        
+             ## color = Compartment will colour the compartments with unique values, but
+             ## because the colour of these variables is controlled manually with
+             ## `scale_color_manual`, there's no use including this argument.
+             #color = Compartment
+             )
+        ) +
+    geom_line(linewidth = 1.2) +
+    scale_color_manual(values = c("S" = "blue",
+                                  "I" = "black",
+                                  "R" = "darkgreen",
+                                  "D" = "red"),
+                      labels = c("S" = "Susceptible",
+                                 "I" = "Infected",
+                                 "R" = "Recovered",
+                                 "D" = "Dead")) +
+    labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, ", ", country), 
+        x = "Time (days)", y = "Compartment Size", color = "Compartment") +
+    ashokTheme
