@@ -61,9 +61,6 @@ SIRD <- function(time, state, parameters) {
   })
 }
 
-# Time vector
-times <- seq(1, nrow(observed), by = 1)
-
 ## A perfectly acceptable, "base R" way of accessing these.
 init <- c(S = observed$susceptible[1],
           I = observed$prevalence[1],
@@ -132,7 +129,14 @@ R0
 # R0
 
 # Solve the SIRD model with the optimized parameters
-out <- lsoda(y = init, times = times, func = SIRD, parms = opt_params)
+out <- lsoda(y = init,
+
+             ## The simplest way to get a vector of integers in R through some
+             ## domain, inclusive.
+             times = 1:365,
+
+             func = SIRD,
+             parms = opt_params)
 out
 
 # Convert the output to a data frame for plotting
@@ -166,9 +170,7 @@ ggplot() +
   ashokTheme
 
 # Run the SIRD model with the optimized parameters for 1 year
-oneYear <- seq(1, 365, by = 1)
-
-outoneYear <- lsoda(y = init, times = oneYear, func = SIRD, parms = opt_params)
+outoneYear <- lsoda(y = init, times = 1:365, func = SIRD, parms = opt_params)
 outoneYear <- as.data.frame(outoneYear)
 
 outoneYear_long <- outoneYear %>%
