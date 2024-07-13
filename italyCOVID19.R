@@ -168,11 +168,17 @@ ggplot() +
 outoneYear <- lsoda(y = init, times = 1:365, func = SIRD, parms = opt_params)
 outoneYear <- as.data.frame(outoneYear)
 
-outoneYear_long <- outoneYear %>%
-  pivot_longer(cols = c(S, I, R, D), names_to = "Compartment", values_to = "Value")
-
 # Set the factor levels for the Compartment variable to ensure the desired order
-outoneYear_long$Compartment <- factor(outoneYear_long$Compartment, levels = c("S", "I", "R", "D"))
+# outoneYear_long$Compartment <- factor(outoneYear_long$Compartment, levels = c("S", "I", "R", "D"))
+
+outoneYear_long <- outoneYear %>%
+  pivot_longer(cols = c(S, I, R, D),
+               names_to = "Compartment",
+               values_to = "Value") %>%
+  ## The effect of the commented code above this pipeline can be achieved with
+  ## the following much shorter expression, which takes advantage of the default
+  ## functionality of the as.factor function.
+  mutate(Compartment = as.factor(Compartment))
 
 ggplot(outoneYear_long, aes(x = time, y = Value, color = Compartment)) +
   geom_line(linewidth = 1.2) +
