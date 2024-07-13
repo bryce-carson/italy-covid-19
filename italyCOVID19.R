@@ -69,22 +69,22 @@ print(prettyNum(regionalPopulation, big.mark = ","))
     select(date, confirmed, deaths, recovered) %>%
     rename(dead = deaths) %>%
     mutate(infections = c(0, diff(confirmed)),
-           recoveries = c(0, diff(recovered)),
+           dailyRecovered = c(0, diff(recovered)),
            deaths = c(0, diff(dead)),
            prevalence = confirmed - recovered - dead) %>%
     # Correct the prevalence column based on "the formula".
-    mutate(#prevalence = lag(prevalence) + infections - recoveries - deaths,
+    mutate(#prevalence = lag(prevalence) + infections - dailyRecovered - deaths,
       susceptible = mapply(sum,
                            regionalPopulation,
                            -infections,
-                           -recoveries,
+                           -dailyRecovered,
                            -deaths),
       .keep = "all") %>%
     slice(-1)
 }
 
 observed <- covid19.regional() %>%
-  select(susceptible, confirmed, recovered, dead, prevalence, deaths, recoveries, date)
+  select(susceptible, confirmed, recovered, dead, prevalence, deaths, dailyRecovered, date)
 
 observed
 
