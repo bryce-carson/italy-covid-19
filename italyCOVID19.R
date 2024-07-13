@@ -64,11 +64,19 @@ SIRD <- function(time, state, parameters) {
 # Time vector
 times <- seq(1, nrow(observed), by = 1)
 
-# Initial state values
-init <- c(S = first(observed$susceptible),
-          I = first(observed$prevalence),
-          R = first(observed$recovered),
-          D = first(observed$dead))
+## A perfectly acceptable, "base R" way of accessing these.
+init <- c(S = observed$susceptible[1],
+          I = observed$prevalence[1],
+          R = observed$recovered[1],
+          D = observed$dead[1])
+
+## An alternative, "tidyverse" way of doing the same thing. Pick whichever is
+## more beautiful in your eyes.
+initialStateVariables <-
+  first(observed) %>%
+  select(susceptible, prevalence, recovered, dead) %>%
+  as.numeric() %>%
+  `names<-`(c("S", "I", "R", "D"))
 
 # Initial guesses for parameters
 initial_guesses <- list(
