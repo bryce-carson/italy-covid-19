@@ -22,12 +22,10 @@ countryNamesInEnglish <- unique(countryname_dict[, 1])
 ## category.
 covid19 <- memoise(COVID19::covid19)
 
-country <- "Italy"
-subregion <- c("Lombardia", "Campania", "Lazio")[1]
-startDate <- as.Date("2020-08-31")
-endDate <- as.Date("2020-11-30")
-
-covid19.regional <- function(country, subregion, startDate, endDate) {
+covid19.regional <- function(country = "Italy",
+                             subregion = "Lombardia",
+                             startDate = as.Date("2020-08-31"),
+                             endDate = as.Date("2020-11-30")) {
   if (!country %in% countryNamesInEnglish)
     errorCondition(paste("Argument `country` was not given in English,",
                          "or is not a recognized country."))
@@ -88,7 +86,20 @@ covid19.regional <- function(country, subregion, startDate, endDate) {
            prevalence, newCases, newDead, newRecovered)
 }
 
-observed <- suppressMessages(covid19.regional(country, subregion, startDate, endDate))
+## These data are for the provinces of Italy we are interested in at present.
+## When we want to study other provinces we can add them to this list. Lombardia
+## is the default province and Italy is the default country for this customized
+## use of COVID19::covid19() because it was the province studied at the time my
+## supervisor asked me to work on this project with him.
+observationsItaly <- suppressMessages(list(
+  Lombardia = covid19.regional(),
+  Campania = covid19.regional(subregion = "Campania"),
+  Lazio = covid19.regional(subregion = "Lazio"),
+))
+
+## Select a province under study by changing the component part following the
+## extract operator.
+observed <- observationsItaly$Lombardia
  
 # Plot daily cases (Incidence)
 plot_Incidence <- ggplot(observed, aes(x = date, y = newCases)) +
