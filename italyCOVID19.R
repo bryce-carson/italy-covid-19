@@ -20,29 +20,37 @@ observed <- observationsItaly$Lombardia
 observedPlots <- list(
   ## Plot daily cases (Incidence)
   incidence = ggplot(observed, aes(x = date, y = newCases)) +
-    geom_line(color = "blue", linewidth = 1.2) +
-    labs(title = paste0("Daily Cases in %s, %s", subregion, country), x = "Date", y = "Daily Cases") +
-    scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
-    ashokTheme,
+              geom_line(color = "blue", linewidth = 1.2) +
+              labs(title = paste0("Daily Cases in %s, %s", subregion, country),
+                   x = "Date",
+                   y = "Daily Cases") +
+              scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
+              ashokTheme,
 
   ## Plot Prevalence (Active cases)
   prevalence = ggplot(observed, aes(x = date, y = prevalence)) +
     geom_line(color = "black", linewidth = 1.2) +
-    labs(title = paste0("Prevalence in %s, %s", subregion, country), x = "Date", y = "Prevalence") +
+    labs(title = paste0("Prevalence in %s, %s", subregion, country),
+         x = "Date",
+         y = "Prevalence") +
     scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
     ashokTheme,
 
   ## Plot daily recovered
   newRecovered = ggplot(observed, aes(x = date, y = newRecovered)) +
     geom_line(color = "darkgreen", linewidth = 1.2) +
-    labs(title = paste0("Daily Recovered in %s, %s", subregion, country), x = "Date", y = "Daily Recovered") +
+    labs(title = paste0("Daily Recovered in %s, %s", subregion, country),
+         x = "Date",
+         y = "Daily Recovered") +
     scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
     ashokTheme,
 
   ## Plot daily deaths
   newDead = ggplot(observed, aes(x = date, y = newDead)) +
     geom_line(color = "red", linewidth = 1.2) +
-    labs(title = paste0("Daily Deaths in %s, %s", subregion, country), x = "Date", y = "Daily Deaths") +
+    labs(title = paste0("Daily Deaths in %s, %s", subregion, country),
+         x = "Date",
+         y = "Daily Deaths") +
     scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
     ashokTheme
 )
