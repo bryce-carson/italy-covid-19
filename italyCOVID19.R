@@ -170,23 +170,3 @@ ggplot(outoneYear_long, aes(x = time, y = Value, color = Compartment)) +
   labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), 
        x = "Time (days)", y = "Compartment Size", color = "Compartment") +
   ashokTheme
-
-## FIXME: Ashok wrote this, I don't know what it does. It doesn't work. It was commented.
-# observed_long <- observed %>% 
-  # select(-susceptible, -confirmed, -deaths, -newRecovered) %>% 
-  # pivot_longer(cols = -date, names_to = "compartment", values_to = "observed")
-
-# output_long <- output %>%
-  # select(-S, -time) %>%
-  # pivot_longer(cols = -date, names_to = "compartment", values_to = "predicted")
-
-# plot_data <- full_join(observed_long, output_long, by = c("date", "compartment"))
-
-# ggplot(plot_data, aes(x = date)) +
-  # geom_line(aes(y = observed, color = compartment), linewidth = 1.2) +
-  # geom_line(aes(y = predicted, color = compartment), linetype = "dashed", linewidth = 1.2) +
-  # labs(title = "SIRD Model Fit to COVID-19 Data",
-       # x = "Date",
-       # y = "Count",
-       # color = "Compartment") +
-  # theme_minimal()
