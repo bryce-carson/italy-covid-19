@@ -134,26 +134,59 @@ output$date <- observed$date
 
 # Plot 1: Prevalence and I (Infected)
 ggplot() +
-  geom_line(data = observed, aes(x = date, y = prevalence), color = "black", linetype = "solid", linewidth = 1.2) +
-  geom_line(data = output, aes(x = date, y = I), color = "blue", linetype = "dotdash", linewidth = 1.2) +
-  labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, country), x = "Date", y = "Prevalence") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
+  geom_line(data = observed,
+            aes(x = date, y = prevalence),
+            color = "black",
+            linetype = "solid",
+            linewidth = 1.2) +
+  geom_line(data = output,
+            aes(x = date, y = I),
+            color = "blue",
+            linetype = "dotdash",
+            linewidth = 1.2) +
+  labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, country),
+       x = "Date",
+       y = "Prevalence") +
+  scale_x_date(date_breaks = "2 weeks",
+               date_labels = "%b %d") +
   ashokTheme
 
 # Plot 2: Recovered and R (Recovered)
 ggplot() +
-  geom_line(data = observed, aes(x = date, y = recovered), color = "darkgreen", linetype = "solid", linewidth = 1.2) +
-  geom_line(data = output, aes(x = date, y = R), color = "blue", linetype = "dotdash", linewidth = 1.2) +
-  labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, country), x = "Date", y = "Recovered") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
+  geom_line(data = observed,
+            aes(x = date, y = recovered),
+            color = "darkgreen",
+            linetype = "solid",
+            linewidth = 1.2) +
+  geom_line(data = output,
+            aes(x = date, y = R),
+            color = "blue",
+            linetype = "dotdash",
+            linewidth = 1.2) +
+  labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, country),
+       x = "Date",
+       y = "Recovered") +
+  scale_x_date(date_breaks = "2 weeks",
+               date_labels = "%b %d") +
   ashokTheme
 
 # Plot 3: Dead and D (Dead)
 ggplot() +
-  geom_line(data = observed, aes(x = date, y = dead), color = "red", linetype = "solid", linewidth = 1.2) +
-  geom_line(data = output, aes(x = date, y = D), color = "blue", linetype = "dotdash", linewidth = 1.2) +
-  labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, country), x = "Date", y = "Dead") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
+  geom_line(data = observed,
+            aes(x = date, y = dead),
+            color = "red",
+            linetype = "solid",
+            linewidth = 1.2) +
+  geom_line(data = output,
+            aes(x = date, y = D),
+            color = "blue",
+            linetype = "dotdash",
+            linewidth = 1.2) +
+  labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, country),
+       x = "Date",
+       y = "Dead") +
+  scale_x_date(date_breaks = "2 weeks",
+               date_labels = "%b %d") +
   ashokTheme
 
 # Run the SIRD model with the optimized parameters for 1 year
