@@ -196,7 +196,7 @@ output$date <- observed$date
 
 # Plot 1: Prevalence and I (Infected)
 ggplot() +
-  geom_line(data = observed, aes(x = date, y = prevalence), color = "black", linetype = "solid", size = 1.2) +
+  geom_line(data = observed, aes(x = date, y = prevalence), color = "black", linetype = "solid", linewidth = 1.2) +
   geom_line(data = output, aes(x = date, y = I), color = "blue", linetype = "dotdash", linewidth = 1.2) +
   geom_hline(yintercept = min(observed$prevalence), color = "black") +
   geom_vline(xintercept = min(observed$date), color = "black") +
@@ -212,7 +212,7 @@ ggplot() +
 
 # Plot 2: Recovered and R (Recovered)
 ggplot() +
-  geom_line(data = observed, aes(x = date, y = recovered), color = "darkgreen", linetype = "solid", size = 1.2) +
+  geom_line(data = observed, aes(x = date, y = recovered), color = "darkgreen", linetype = "solid", linewidth = 1.2) +
   geom_line(data = output, aes(x = date, y = R), color = "blue", linetype = "dotdash", linewidth = 1.2) +
   geom_hline(yintercept = min(observed$recovered), color = "black") +
   geom_vline(xintercept = min(observed$date), color = "black") +
@@ -228,7 +228,7 @@ ggplot() +
 
 # Plot 3: Dead and D (Dead)
 ggplot() +
-  geom_line(data = observed, aes(x = date, y = dead), color = "red", linetype = "solid", size = 1.2) +
+  geom_line(data = observed, aes(x = date, y = dead), color = "red", linetype = "solid", linewidth = 1.2) +
   geom_line(data = output, aes(x = date, y = D), color = "blue", linetype = "dotdash", linewidth = 1.2) +
   geom_hline(yintercept = min(observed$dead), color = "black") +
   geom_vline(xintercept = min(observed$date), color = "black") +
@@ -244,26 +244,25 @@ ggplot() +
 
 
 # Run the SIRD model with the optimized parameters for 1 year
+oneYear <- seq(1, 365, by = 1)
 
-oneYear <- seq(1, nrow(observed)*4, by = 1)
-
-# Solve the SIRD model with the optimized parameters
 outoneYear <- lsoda(y = init, times = oneYear, func = SIRD, parms = opt_params)
-outoneYear
-
-# Convert the output to a data frame for plotting
 outoneYear <- as.data.frame(outoneYear)
 
-# Plot the results
+outoneYear_long <- outoneYear %>%
+  pivot_longer(cols = c(S, I, R, D), names_to = "Compartment", values_to = "Value")
 
-ggplot() +
-  geom_line(data = outoneYear, aes(x = oneYear, y = S), color = "blue", linetype = "solid", size = 1.2) +
-  geom_line(data = outoneYear, aes(x = oneYear, y = I), color = "black", linetype = "solid", size = 1.2) +
-  geom_line(data = outoneYear, aes(x = oneYear, y = R), color = "darkgreen", linetype = "solid", size = 1.2) +
-  geom_line(data = outoneYear, aes(x = oneYear, y = D), color = "red", linetype = "solid", size = 1.2) +
+# Set the factor levels for the Compartment variable to ensure the desired order
+outoneYear_long$Compartment <- factor(outoneYear_long$Compartment, levels = c("S", "I", "R", "D"))
+
+ggplot(outoneYear_long, aes(x = time, y = Value, color = Compartment)) +
+  geom_line(linewidth = 1.2) +
   geom_hline(yintercept = min(outoneYear$I), color = "black") +
   geom_vline(xintercept = 0, color = "black") +
-  labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Comparment Size") +
+  scale_color_manual(values = c("S" = "blue", "I" = "black", "R" = "darkgreen", "D" = "red"),
+                     labels = c("S" = "Susceptible", "I" = "Infected", "R" = "Recovered", "D" = "Dead")) +
+  labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), 
+       x = "Time (days)", y = "Compartment Size", color = "Compartment") +
   theme_minimal() +
   theme(
     axis.title.x = element_text(face = "bold"),
