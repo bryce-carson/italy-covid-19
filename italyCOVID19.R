@@ -109,7 +109,21 @@ opt_params
 # The Basic Reproduction Number (R0) for an SIRD model
 # R0 = beta/(gamma + delta)
 
-R0 <- opt_params[[1]]/(opt_params[[2]]+opt_params[[3]])
+## Effective, but doesn't communicate what it is really doing to the reader. In
+## six months, it'll take you six minutes to realize that opt_params has names
+## you can use!
+R0 <- opt_params[[1]] / (opt_params[[2]] + opt_params[[3]]) # Why remove the names with `[[` when they can help us instead?
+
+## Effective, but there's no need it should be three lines when base::with
+## exists to make the names of an object available during evaluation of an
+## expression, without polluting the outer/calling environment.
+attach(opt_params)
+R0 <- beta / (gamma + delta)
+detach(opt_params)
+
+## A very short, very clear statement.
+R0 <- with(opt_params, beta / (gamma + delta))
+
 R0
 
 # opt_params[[3]] <- 0.001 # I have reset delta to a different value. 
