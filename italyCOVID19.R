@@ -5,6 +5,7 @@ library(deSolve)
 library(optimx)
 library(countrycode)
 library(gridExtra)
+library(ggplot2)
 
 ## Used to cache function results from covid19, so data is only downloaded once
 ## without needing to assign it to an object ourselves.
@@ -69,24 +70,26 @@ print(prettyNum(regionalPopulation, big.mark = ","))
     select(date, confirmed, deaths, recovered) %>%
     rename(dead = deaths) %>%
     mutate(infections = c(0, diff(confirmed)),
-           dailyRecovered = c(0, diff(recovered)),
+           newRecovered = c(0, diff(recovered)),
            deaths = c(0, diff(dead)),
            prevalence = confirmed - recovered - dead) %>%
     # Correct the prevalence column based on "the formula".
-    mutate(#prevalence = lag(prevalence) + infections - dailyRecovered - deaths,
+    mutate(prevalence = lag(prevalence) + infections - newRecovered - deaths,
       susceptible = mapply(sum,
                            regionalPopulation,
-                           -infections,
-                           -dailyRecovered,
-                           -deaths),
+                           -prevalence,
+                           -recovered,
+                           -dead),
       .keep = "all") %>%
     slice(-1)
 }
 
 observed <- covid19.regional() %>%
-  select(susceptible, confirmed, recovered, dead, prevalence, deaths, dailyRecovered, date)
+  select(susceptible, confirmed, recovered, dead, prevalence, deaths, newRecovered, date)
 
 observed
+
+print(observed, n = dim(observed)[1])
 
 # Define the SIRD model
 SIRD <- function(time, state, parameters) {
@@ -110,7 +113,7 @@ times <- seq(1, nrow(observed), by = 1)
 RSS <- function(parameters) {
   names(parameters) <- c("beta", "gamma", "delta")
   out <- lsoda(y = init, times = times, func = SIRD, parms = parameters)
-  sum((observed$susceptible - out[, "S"])^2 +
+  sum(#(observed$susceptible - out[, "S"])^2 +
         (observed$prevalence - out[, "I"])^2 +
         (observed$recovered - out[, "R"])^2 +
         (observed$dead - out[, "D"])^2)
@@ -118,9 +121,9 @@ RSS <- function(parameters) {
 
 # Initial guesses for parameters
 initial_guesses <- list(
-  c(beta = 0.4, gamma = 0.1, delta = 0.01),
-  c(beta = 0.3, gamma = 0.1, delta = 0.02),
-  c(beta = 0.5, gamma = 0.1, delta = 0.03)
+  c(beta = 0.4, gamma = 0.05, delta = 0.01),
+  c(beta = 0.3, gamma = 0.05, delta = 0.02),
+  c(beta = 0.5, gamma = 0.05, delta = 0.03)
 )
 
 fit_optimization <- function(init_params) {
@@ -154,11 +157,24 @@ if (is.null(opt_params)) {
 # Print the best-fit parameters
 opt_params
 
-#Returns a delta of 0.00000000
+# Strangely returns a delta of 0.00000000
+
+# beta      gamma       delta 
+# 0.06565431 0.02738994 0.00000000 
+
+# The Basic Reproduction Number (R0) for an SIRD model
+# R0 = beta/(gamma + delta)
+
+R0 <- opt_params[[1]]/(opt_params[[2]]+opt_params[[3]])
+R0
+
+opt_params[[3]] <- 0.001 # I have reset delta to a non-zero value
+
+R0 <- opt_params[[1]]/(opt_params[[2]]+opt_params[[3]])
+R0
 
 # Solve the SIRD model with the optimized parameters
 out <- lsoda(y = init, times = times, func = SIRD, parms = opt_params)
-
 out
 
 # Convert the output to a data frame for plotting
@@ -166,21 +182,70 @@ output <- as.data.frame(out)
 output$date <- observed$date
 
 # Plot the results
-observed_long <- observed %>% 
-  select(-susceptible, -confirmed) %>% 
-  pivot_longer(cols = -date, names_to = "compartment", values_to = "observed")
 
-output_long <- output %>%
-  select(-S) %>%
-  pivot_longer(cols = -date, names_to = "compartment", values_to = "predicted")
+# Plot 1: Prevalence and I (Infected)
+ggplot() +
+  geom_line(data = observed, aes(x = date, y = prevalence), color = "black", linetype = "solid", size = 1.2) +
+  geom_line(data = output, aes(x = date, y = I), color = "blue", linetype = "dotdash", linewidth = 1.2) +
+  geom_hline(yintercept = min(observed$prevalence), color = "black") +
+  geom_vline(xintercept = min(observed$date), color = "black") +
+  labs(title = "SIRD Model Fit to COVID-19 Data", x = "Date", y = "Active Cases") +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
 
-plot_data <- full_join(observed_long, output_long, by = c("date", "compartment"))
+# Plot 2: Recovered and R (Recovered)
+ggplot() +
+  geom_line(data = observed, aes(x = date, y = recovered), color = "darkgreen", linetype = "solid", size = 1.2) +
+  geom_line(data = output, aes(x = date, y = R), color = "blue", linetype = "dotdash", linewidth = 1.2) +
+  geom_hline(yintercept = min(observed$recovered), color = "black") +
+  geom_vline(xintercept = min(observed$date), color = "black") +
+  labs(title = "SIRD Model Fit to COVID-19 Data", x = "Date", y = "Recovered") +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
 
-ggplot(plot_data, aes(x = date)) +
-  geom_line(aes(y = observed, color = compartment), linewidth = 1) +
-  geom_line(aes(y = predicted, color = compartment), linetype = "dashed", linewidth = 1) +
-  labs(title = "SIRD Model Fit to COVID-19 Data",
-       x = "Date",
-       y = "Count",
-       color = "Compartment") +
-  theme_minimal()
+# Plot 3: Dead and D (Dead)
+ggplot() +
+  geom_line(data = observed, aes(x = date, y = dead), color = "red", linetype = "solid", size = 1.2) +
+  geom_line(data = output, aes(x = date, y = D), color = "blue", linetype = "dotdash", linewidth = 1.2) +
+  geom_hline(yintercept = min(observed$dead), color = "black") +
+  geom_vline(xintercept = min(observed$date), color = "black") +
+  labs(title = "SIRD Model Fit to COVID-19 Data", x = "Date", y = "Dead") +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+# observed_long <- observed %>% 
+#   select(-susceptible, -confirmed, -deaths, -newRecovered) %>% 
+#   pivot_longer(cols = -date, names_to = "compartment", values_to = "observed")
+# 
+# output_long <- output %>%
+#   select(-S, -time) %>%
+#   pivot_longer(cols = -date, names_to = "compartment", values_to = "predicted")
+# 
+# plot_data <- full_join(observed_long, output_long, by = c("date", "compartment"))
+# 
+# ggplot(plot_data, aes(x = date)) +
+#   geom_line(aes(y = observed, color = compartment), linewidth = 1.2) +
+#   geom_line(aes(y = predicted, color = compartment), linetype = "dashed", linewidth = 1.2) +
+#   labs(title = "SIRD Model Fit to COVID-19 Data",
+#        x = "Date",
+#        y = "Count",
+#        color = "Compartment") +
+#   theme_minimal()
