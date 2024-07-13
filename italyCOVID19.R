@@ -1,3 +1,7 @@
+## This is included just in case you don't run the files in their sorted order.
+source("0.ashok_ggplot_theme.R")
+source("0.COVID-19_in_Italy_functions.R")
+
 ## These data are for the provinces of Italy we are interested in at present.
 ## When we want to study other provinces we can add them to this list. Lombardia
 ## is the default province and Italy is the default country for this customized

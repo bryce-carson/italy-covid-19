@@ -10,8 +10,6 @@ library(gridExtra)
 ## without needing to assign it to an object ourselves.
 library(memoise)
 
-source("ashok_ggplot_theme.R")
-
 ## https://covid19datahub.io/articles/docs.html#epidemiological-variables
 ##
 ## All variables are cumulative except hosp, icu, vent, and population;
