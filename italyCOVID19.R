@@ -70,16 +70,6 @@ init <- c(S = first(observed$susceptible),
           R = first(observed$recovered),
           D = first(observed$dead))
 
-# Objective function to minimize the residual sum of squares (RSS)
-RSS <- function(parameters) {
-  names(parameters) <- c("beta", "gamma", "delta")
-  out <- lsoda(y = init, times = times, func = SIRD, parms = parameters)
-  sum(#(observed$susceptible - out[, "S"])^2 +
-        (observed$prevalence - out[, "I"])^2 +
-        (observed$recovered - out[, "R"])^2 +
-        (observed$dead - out[, "D"])^2)
-}
-
 # Initial guesses for parameters
 initial_guesses <- list(
   c(beta = 0.4, gamma = 0.05, delta = 0.01),
