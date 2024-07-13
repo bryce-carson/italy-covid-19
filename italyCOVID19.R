@@ -22,7 +22,7 @@ countryNamesInEnglish <- unique(countryname_dict[, 1])
 covid19 <- memoise(COVID19::covid19)
 
 country <- "Italy"
-subregion <- "Lombardia"
+subregion <- "Lombardia" # "Campania" #  "Lazio" # 
 startDate <- as.Date("2020-08-31")
 endDate <- as.Date("2020-11-30")
 
@@ -57,26 +57,26 @@ covid19.regional <- function(country, subregion, startDate, endDate) {
   regionalPopulation <- first(regionalCOVID19Data$population)
   
   message(sprintf(r"[Spatial information:
-Country = %s
-Region = %s
-GADM = %s
-Region population = %s]",
-country,
-subregion,
-first(regionalCOVID19Data$GADM),
-prettyNum(regionalPopulation, big.mark = ",")))
+  Country = %s
+  Region = %s
+  GADM = %s
+  Region population = %s]",
+  country,
+  subregion,
+  first(regionalCOVID19Data$GADM),
+  prettyNum(regionalPopulation, big.mark = ",")))
 
-print(prettyNum(regionalPopulation, big.mark = ","))
+#print(prettyNum(regionalPopulation, big.mark = ","))
 
   as_tibble(regionalCOVID19Data) %>%
     select(date, confirmed, deaths, recovered) %>%
     rename(dead = deaths) %>%
-    mutate(infections = c(0, diff(confirmed)),
+    mutate(newCases = c(0, diff(confirmed)),
            newRecovered = c(0, diff(recovered)),
-           deaths = c(0, diff(dead)),
+           newDead = c(0, diff(dead)),
            prevalence = confirmed - recovered - dead) %>%
     # Correct the prevalence column based on "the formula".
-    mutate(prevalence = lag(prevalence) + infections - newRecovered - deaths,
+    mutate(prevalence = lag(prevalence) + newCases - newRecovered - newDead,
       susceptible = mapply(sum,
                            regionalPopulation,
                            -prevalence,
@@ -90,11 +90,83 @@ observed <- covid19.regional(country = country,
                              subregion = subregion,
                              startDate = startDate,
                              endDate = endDate) %>%
-  select(susceptible, confirmed, recovered, dead, prevalence, deaths, newRecovered, date)
+  select(date, susceptible, confirmed, recovered, dead, prevalence, newCases, newDead, newRecovered)
 
 observed
 
-print(observed, n = dim(observed)[1])
+#print(observed, n = dim(observed)[1])
+
+# Plot daily cases (Incidence)
+plot_Incidence <- ggplot(observed, aes(x = date, y = newCases)) +
+  geom_line(color = "blue", linewidth = 1.2) +
+  geom_hline(yintercept = min(observed$newCases), color = "black") +
+  geom_vline(xintercept = min(observed$date), color = "black") +
+  labs(title = paste0("Daily Cases in ", subregion, ", ", country), x = "Date", y = "Daily Cases") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+plot_Incidence
+
+# Plot Prevalence (Active cases)
+plot_Prevalence <- ggplot(observed, aes(x = date, y = prevalence)) +
+  geom_line(color = "black", linewidth = 1.2) +
+  geom_hline(yintercept = min(observed$prevalence), color = "black") +
+  geom_vline(xintercept = min(observed$date), color = "black") +
+  labs(title = paste0("Prevalence in ", subregion, ", ", country), x = "Date", y = "Prevalence") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+plot_Prevalence
+
+# Plot daily recovered
+plot_newRecovered <- ggplot(observed, aes(x = date, y = newRecovered)) +
+  geom_line(color = "darkgreen", linewidth = 1.2) +
+  geom_hline(yintercept = min(observed$newRecovered), color = "black") +
+  geom_vline(xintercept = min(observed$date), color = "black") +
+  labs(title = paste0("Daily Recovered in ", subregion, ", ", country), x = "Date", y = "Daily Recovered") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+plot_newRecovered
+
+# Plot daily deaths
+plot_newDead <- ggplot(observed, aes(x = date, y = newDead)) +
+  geom_line(color = "red", linewidth = 1.2) +
+  geom_hline(yintercept = min(observed$newDead), color = "black") +
+  geom_vline(xintercept = min(observed$date), color = "black") +
+  labs(title = paste0("Daily Deaths in ", subregion, ", ", country), x = "Date", y = "Daily Deaths") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+plot_newDead
 
 # Define the mean field SIRD model
 SIRD <- function(time, state, parameters) {
@@ -108,14 +180,14 @@ SIRD <- function(time, state, parameters) {
   })
 }
 
+# Time vector
+times <- seq(1, nrow(observed), by = 1)
+
 # Initial state values
 init <- c(S = first(observed$susceptible),
           I = first(observed$prevalence),
           R = first(observed$recovered),
           D = first(observed$dead))
-
-# Time vector
-times <- seq(1, nrow(observed), by = 1)
 
 # Objective function to minimize the residual sum of squares (RSS)
 RSS <- function(parameters) {
@@ -158,6 +230,7 @@ fit_optimization <- function(init_params) {
 }
 
 opt_params <- NULL
+
 for (guess in initial_guesses) {
   opt_params <- fit_optimization(guess)
   if (!is.null(opt_params)) break
@@ -179,10 +252,10 @@ opt_params
 R0 <- opt_params[[1]]/(opt_params[[2]]+opt_params[[3]])
 R0
 
-opt_params[[3]] <- 0.001 # I have reset delta to a different value. 
-
-R0 <- opt_params[[1]]/(opt_params[[2]]+opt_params[[3]])
-R0
+# opt_params[[3]] <- 0.001 # I have reset delta to a different value. 
+# 
+# R0 <- opt_params[[1]]/(opt_params[[2]]+opt_params[[3]])
+# R0
 
 # Solve the SIRD model with the optimized parameters
 out <- lsoda(y = init, times = times, func = SIRD, parms = opt_params)
@@ -200,7 +273,8 @@ ggplot() +
   geom_line(data = output, aes(x = date, y = I), color = "blue", linetype = "dotdash", linewidth = 1.2) +
   geom_hline(yintercept = min(observed$prevalence), color = "black") +
   geom_vline(xintercept = min(observed$date), color = "black") +
-  labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Active Cases") +
+  labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Prevalence") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   theme_minimal() +
   theme(
     axis.title.x = element_text(face = "bold"),
@@ -217,6 +291,7 @@ ggplot() +
   geom_hline(yintercept = min(observed$recovered), color = "black") +
   geom_vline(xintercept = min(observed$date), color = "black") +
   labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Recovered") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   theme_minimal() +
   theme(
     axis.title.x = element_text(face = "bold"),
@@ -233,6 +308,7 @@ ggplot() +
   geom_hline(yintercept = min(observed$dead), color = "black") +
   geom_vline(xintercept = min(observed$date), color = "black") +
   labs(title = paste0("SIRD Model Fit to COVID-19 Data in ", subregion, ", ", country), x = "Date", y = "Dead") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%b %d") +
   theme_minimal() +
   theme(
     axis.title.x = element_text(face = "bold"),
@@ -241,7 +317,6 @@ ggplot() +
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank()
   )
-
 
 # Run the SIRD model with the optimized parameters for 1 year
 oneYear <- seq(1, 365, by = 1)
