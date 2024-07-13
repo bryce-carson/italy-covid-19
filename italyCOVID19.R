@@ -24,7 +24,7 @@ observed <- observationsItaly$Lombardia
 observedPlots <- list(
   ## Plot daily cases (Incidence)
   incidence = ggplot(observed, aes(x = date, y = newCases)) +
-              geom_line(color = "blue", linewidth = 1.2) +
+              geom_line(color = "blue") +
               labs(title = paste0("Daily Cases in %s, %s", subregion, country),
                    x = "Date",
                    y = "Daily Cases") +
@@ -33,7 +33,7 @@ observedPlots <- list(
 
   ## Plot Prevalence (Active cases)
   prevalence = ggplot(observed, aes(x = date, y = prevalence)) +
-    geom_line(color = "black", linewidth = 1.2) +
+    geom_line(color = "black") +
     labs(title = paste0("Prevalence in %s, %s", subregion, country),
          x = "Date",
          y = "Prevalence") +
@@ -42,7 +42,7 @@ observedPlots <- list(
 
   ## Plot daily recovered
   newRecovered = ggplot(observed, aes(x = date, y = newRecovered)) +
-    geom_line(color = "darkgreen", linewidth = 1.2) +
+    geom_line(color = "darkgreen") +
     labs(title = paste0("Daily Recovered in %s, %s", subregion, country),
          x = "Date",
          y = "Daily Recovered") +
@@ -51,7 +51,7 @@ observedPlots <- list(
 
   ## Plot daily deaths
   newDead = ggplot(observed, aes(x = date, y = newDead)) +
-    geom_line(color = "red", linewidth = 1.2) +
+    geom_line(color = "red") +
     labs(title = paste0("Daily Deaths in %s, %s", subregion, country),
          x = "Date",
          y = "Daily Deaths") +
@@ -149,13 +149,11 @@ ggplot() +
   geom_line(data = observed,
             aes(x = date, y = prevalence),
             color = "black",
-            linetype = "solid",
-            linewidth = 1.2) +
+            linetype = "solid") +
   geom_line(data = output,
             aes(x = date, y = I),
             color = "blue",
-            linetype = "dotdash",
-            linewidth = 1.2) +
+            linetype = "dotdash") +
   labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, country),
        x = "Date",
        y = "Prevalence") +
@@ -168,13 +166,11 @@ ggplot() +
   geom_line(data = observed,
             aes(x = date, y = recovered),
             color = "darkgreen",
-            linetype = "solid",
-            linewidth = 1.2) +
+            linetype = "solid") +
   geom_line(data = output,
             aes(x = date, y = R),
             color = "blue",
-            linetype = "dotdash",
-            linewidth = 1.2) +
+            linetype = "dotdash") +
   labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, country),
        x = "Date",
        y = "Recovered") +
@@ -187,13 +183,11 @@ ggplot() +
   geom_line(data = observed,
             aes(x = date, y = dead),
             color = "red",
-            linetype = "solid",
-            linewidth = 1.2) +
+            linetype = "solid") +
   geom_line(data = output,
             aes(x = date, y = D),
             color = "blue",
-            linetype = "dotdash",
-            linewidth = 1.2) +
+            linetype = "dotdash") +
   labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, country),
        x = "Date",
        y = "Dead") +
@@ -236,7 +230,7 @@ outoneYear %>%
              #color = Compartment
              )
         ) +
-    geom_line(linewidth = 1.2) +
+    geom_line() +
     scale_color_manual(values = c("S" = "blue",
                                   "I" = "black",
                                   "R" = "darkgreen",
