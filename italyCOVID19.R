@@ -123,11 +123,6 @@ R0 <- with(opt_params, beta / (gamma + delta))
 
 R0
 
-# opt_params[[3]] <- 0.001 # I have reset delta to a different value. 
-# 
-# R0 <- opt_params[[1]]/(opt_params[[2]]+opt_params[[3]])
-# R0
-
 # Solve the SIRD model with the optimized parameters
 out <- lsoda(y = init,
 
