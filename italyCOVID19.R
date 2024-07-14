@@ -235,10 +235,12 @@ outoneYear %>%
                                   "I" = "black",
                                   "R" = "darkgreen",
                                   "D" = "red"),
-                      labels = c("S" = "Susceptible",
-                                 "I" = "Infected",
-                                 "R" = "Recovered",
-                                 "D" = "Dead")) +
+                       labels = c("S" = "Susceptible",
+                                  "I" = "Infected",
+                                  "R" = "Recovered",
+                                  "D" = "Dead")) +
     labs(title = paste0("SIRD Model Fit to COVID-19 Data in %s, %s", subregion, ", ", country), 
-        x = "Time (days)", y = "Compartment Size", color = "Compartment") +
+         x = "Time (days)",
+         y = "Compartment Size",
+         color = "Compartment") +
     ashokTheme
