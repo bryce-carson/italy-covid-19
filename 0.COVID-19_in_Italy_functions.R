@@ -18,6 +18,8 @@ covid19.regional <- function(country = "Italy",
   message("`country` was valid; assuming all other arguments are valid.")
   
   regionalCOVID19Data <-
+    ## FIXME: on Windows the following line fails because R cannot open a
+    ## temporary file in the %LOCAL_APPDATA% folder.
     covid19(country, 2, startDate, endDate, verbose = FALSE) %>%
     select(date,
            confirmed,
@@ -85,29 +87,32 @@ SIRD <- function(time, state, parameters) {
 
 # Objective function to minimize the residual sum of squares (RSS)
 RSS <- function(parameters) {
-  names(parameters) <- c("beta", "gamma", "delta")
-  out <- lsoda(y = initialStateValues, times = 1:365, func = SIRD, parms = parameters)
-  sum(#(observed$susceptible - out[, "S"])^2 +
-        (observed$prevalence - out[, "I"])^2 +
-        (observed$recovered - out[, "R"])^2 +
-        (observed$dead - out[, "D"])^2)
+  if (all(!c("beta", "gamma", "delta") %in% names(parameters))) {
+    warning("[RSS(parameters)] Argument parameters does not have the names beta, gamma, delta. Assigning these names in order.")
+    names(parameters) <- c("beta", "gamma", "delta")
+  }
+  data <- c(observed,
+            as.data.frame(lsoda(y = initialStateVariables,
+                                times = seq(nrow(observed)),
+                                func = SIRD,
+                                parms = parameters)))
+  with(data, sum(c(prevalence - I, recovered - R, dead - D)^2))
 }
 
-fit_optimization <- function(init_params) {
-  fit <- tryCatch(
-    {
-      #optim(par = init_params, fn = RSS, method = "L-BFGS-B", lower = c(0, 0, 0), upper = c(1, 1, 1))
-      optim(par = init_params, fn = RSS, method = "L-BFGS-B", lower = lower_bounds, upper = upper_bounds)
-    },
-    error = function(e) {
-      message("Optimization error: ", e)
-      NULL
-    }
-  )
-  
-  if (!is.null(fit) && fit$convergence == 0) {
-    return(fit$par)
-  } else {
-    return(NULL)
-  }
+fit_optimization <-
+function(initialParameters,
+         lowerBoxConstratins = integer(length(initialParameters)),
+         upperBoxContstraints = 1 + lowerBoxConstratins) {
+  fit <-
+    tryCatch({
+        optim(par = initialParameters,
+              fn = RSS,
+              method = "L-BFGS-B",
+              lower = lowerBoxConstratins,
+              upper = upperBoxContstraints)
+      },
+      error = function(e) { simpleError("Optimization error: ", e); NULL }
+    )
+
+  if (!is.null(fit) && fit$convergence == 0) fit$par else NULL
 }

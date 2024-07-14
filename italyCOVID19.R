@@ -14,6 +14,7 @@ library(memoise)
 source("0.ashok_ggplot_theme.R")
 source("0.COVID-19_in_Italy_functions.R")
 
+## ▂▃▅▇█▓▒░۩۞۩ DOWNLOAD COVID-19 EPIDEMIC DATA ۩۞۩░▒▓█▇▅▃▂
 ## These data are for the provinces of Italy we are interested in at present.
 ## When we want to study other provinces we can add them to this list. Lombardia
 ## is the default province and Italy is the default country for this customized
@@ -22,13 +23,72 @@ source("0.COVID-19_in_Italy_functions.R")
 observationsItaly <- suppressMessages(list(
   Lombardia = covid19.regional(),
   Campania = covid19.regional(subregion = "Campania"),
-  Lazio = covid19.regional(subregion = "Lazio"),
+  Lazio = covid19.regional(subregion = "Lazio")
 ))
 
 ## Select a province under study by changing the component part following the
 ## extract operator.
-observed <- observationsItaly$Lombardia
+country <- "Italy" # This line only required and used because later plotting code uses it.
+subregion <- "Lombardia" # This line only required and used because later plotting code uses it.
+observed <- observationsItaly[[subregion]] # Access the list component directly, rather than slice the list with `[`.
 
+## ▂▃▅▇█▓▒░۩۞۩ INITIAL STATE VARIABLES ۩۞۩░▒▓█▇▅▃▂
+## A perfectly acceptable, "base R" way of accessing these values.
+init <- c(S = observed$susceptible[1],
+          I = observed$prevalence[1],
+          R = observed$recovered[1],
+          D = observed$dead[1])
+
+## An alternative, "tidyverse" way of doing the same thing. Pick whichever is
+## more beautiful in your eyes. This variable is unused.
+initialStateVariables <-
+  first(observed) %>%
+  select(susceptible, prevalence, recovered, dead) %>%
+  as.numeric() %>%
+  `names<-`(c("S", "I", "R", "D"))
+
+## ▂▃▅▇█▓▒░۩۞۩ OPTIMIZATION ۩۞۩░▒▓█▇▅▃▂
+## Initial guesses for parameters
+initial_guesses <- list(
+  c(beta = 0.4, gamma = 0.05, delta = 0.01),
+  c(beta = 0.3, gamma = 0.05, delta = 0.02),
+  c(beta = 0.5, gamma = 0.05, delta = 0.03)
+)
+
+## Tighter and more realistic bounds
+lower_bounds <- c(beta = 0.001, gamma = 0.001, delta = 0.0001)
+upper_bounds <- c(beta = 1, gamma = 0.5, delta = 0.1)
+
+## Computed serially and without vectorization
+for (guess in initial_guesses) {
+  opt_params <- fit_optimization(guess, lower_bounds, upper_bounds)
+  if (!is.null(opt_params)) break
+}
+
+if (is.null(opt_params)) {
+  stop("Optimization did not converge with any initial guesses.")
+}
+
+## ▂▃▅▇█▓▒░۩۞۩ BASIC REPRODUCTION NUMBER ۩۞۩░▒▓█▇▅▃▂
+## The Basic Reproduction Number (R0) for an SIRD model is calculated as
+## follows: R0 = beta/(gamma + delta)
+
+## The following statement is effective, but doesn't communicate what it is
+## really doing to the reader (except with R0). In six months, it'll take you a
+## couple minutes to piece together that opt_params is arranged in the order:
+## beta, gamma, delta. A question to ask is why should we remove the names with
+## `[[` when they can help us instead? See the printed results of opt_params!
+R0 <- opt_params[[1]] / (opt_params[[2]] + opt_params[[3]])
+
+## A very short, very clear statement.
+R0 <- with(as.list(opt_params), beta / (gamma + delta))
+
+## ▂▃▅▇█▓▒░۩۞۩ BASIC REPRODUCTION NUMBER ۩۞۩░▒▓█▇▅▃▂
+sird1YearResults <- as.data.frame(lsoda(y = init, times = 1:365, func = SIRD, parms = opt_params))
+sird1YearResults$date <- as.Date(first(observed$date) : (first(observed$date) + 364))
+
+## ▂▃▅▇█▓▒░۩۞۩ PLOTTING RESULTS ۩۞۩░▒▓█▇▅▃▂
+## ▂▃▅▇█▓▒░۩۞۩ OBSERVED PLOTS ۩۞۩░▒▓█▇▅▃▂
 ## This is just one way in which work can be organized: using lists. The
 ## identifier `observedPlots` documents what data these plots are derived from,
 ## and most text editors will allow you to collapse the list so that you can
@@ -71,98 +131,13 @@ observedPlots <- list(
     ashokTheme
 )
 
-## View the plots by accessing them
-# observedPlots$incidence
-# observedPlots$prevalence
-# observedPlots$newRecovered
-# observedPlots$newDead
-
-## A perfectly acceptable, "base R" way of accessing these values.
-init <- c(S = observed$susceptible[1],
-          I = observed$prevalence[1],
-          R = observed$recovered[1],
-          D = observed$dead[1])
-
-## An alternative, "tidyverse" way of doing the same thing. Pick whichever is
-## more beautiful in your eyes.
-initialStateVariables <-
-  first(observed) %>%
-  select(susceptible, prevalence, recovered, dead) %>%
-  as.numeric() %>%
-  `names<-`(c("S", "I", "R", "D"))
-
-# Initial guesses for parameters
-initial_guesses <- list(
-  c(beta = 0.4, gamma = 0.05, delta = 0.01),
-  c(beta = 0.3, gamma = 0.05, delta = 0.02),
-  c(beta = 0.5, gamma = 0.05, delta = 0.03)
-)
-
-# Tighter and more realistic bounds
-lower_bounds <- c(beta = 0.001, gamma = 0.001, delta = 0.0001)
-upper_bounds <- c(beta = 1, gamma = 0.5, delta = 0.1)
-
-opt_params <- NULL
-
-for (guess in initial_guesses) {
-  opt_params <- fit_optimization(guess)
-  if (!is.null(opt_params)) break
-}
-
-if (is.null(opt_params)) {
-  stop("Optimization did not converge with any initial guesses.")
-}
-
-# Print the best-fit parameters
-opt_params
-
-# beta       gamma      delta 
-# 0.06573343 0.02737643 0.00010000
-
-# The Basic Reproduction Number (R0) for an SIRD model
-# R0 = beta/(gamma + delta)
-
-## Effective, but doesn't communicate what it is really doing to the reader. In
-## six months, it'll take you six minutes to realize that opt_params has names
-## you can use!
-R0 <- opt_params[[1]] / (opt_params[[2]] + opt_params[[3]]) # Why remove the names with `[[` when they can help us instead?
-
-## Effective, but there's no need it should be three lines when base::with
-## exists to make the names of an object available during evaluation of an
-## expression, without polluting the outer/calling environment.
-attach(opt_params)
-R0 <- beta / (gamma + delta)
-detach(opt_params)
-
-## A very short, very clear statement.
-R0 <- with(opt_params, beta / (gamma + delta))
-
-R0
-
-# Solve the SIRD model with the optimized parameters
-out <- lsoda(y = init,
-
-             ## The simplest way to get a vector of integers in R through some
-             ## domain, inclusive.
-             times = 1:365,
-
-             func = SIRD,
-             parms = opt_params)
-out
-
-# Convert the output to a data frame for plotting
-output <- as.data.frame(out)
-output$date <- observed$date
-
-# Plot the results
-
-# Plot 1: Prevalence and I (Infected)
-ggplot() +
+## ▂▃▅▇█▓▒░۩۞۩ MODEL RESULT PLOTS ۩۞۩░▒▓█▇▅▃▂
+prevalenceAndInfectedPlot <- ggplot() +
   geom_line(data = observed,
             aes(x = date, y = prevalence),
             color = "black",
             linetype = "solid") +
-  geom_line(data = output,
+  geom_line(data = sird1YearResults,
             aes(x = date, y = I),
             color = "blue",
             linetype = "dotdash") +
@@ -173,13 +148,12 @@ ggplot() +
                date_labels = "%b %d") +
   ashokTheme
 
-# Plot 2: Recovered and R (Recovered)
-ggplot() +
+recoveredAndRPlot <- ggplot() +
   geom_line(data = observed,
             aes(x = date, y = recovered),
             color = "darkgreen",
             linetype = "solid") +
-  geom_line(data = output,
+  geom_line(data = sird1YearResults,
             aes(x = date, y = R),
             color = "blue",
             linetype = "dotdash") +
@@ -190,13 +164,12 @@ ggplot() +
                date_labels = "%b %d") +
   ashokTheme
 
-# Plot 3: Dead and D (Dead)
-ggplot() +
+deadAndDPlot <- ggplot() +
   geom_line(data = observed,
             aes(x = date, y = dead),
             color = "red",
             linetype = "solid") +
-  geom_line(data = output,
+  geom_line(data = sird1YearResults,
             aes(x = date, y = D),
             color = "blue",
             linetype = "dotdash") +
@@ -207,11 +180,7 @@ ggplot() +
                date_labels = "%b %d") +
   ashokTheme
 
-# Run the SIRD model with the optimized parameters for 1 year
-outoneYear <- lsoda(y = init, times = 1:365, func = SIRD, parms = opt_params)
-outoneYear <- as.data.frame(outoneYear)
-
-# Set the factor levels for the Compartment variable to ensure the desired order
+## Set the factor levels for the Compartment variable to ensure the desired order
 # outoneYear_long$Compartment <- factor(outoneYear_long$Compartment, levels = c("S", "I", "R", "D"))
 
 ## Because "outoneYear_long" isn't the most descriptive name, it makes more
@@ -225,7 +194,9 @@ outoneYear <- as.data.frame(outoneYear)
 ## isn't bad, but it makes more sense to describe the semantics of the
 ## dataframe's shape, rather than just it's shape (a long versus wide
 ## rectangular dataframe).
-outoneYear %>%
+##
+## Plot 4: All compartments (SIRD)
+allComponentsPlot <- sird1YearResults %>%
   pivot_longer(cols = c(S, I, R, D),
                names_to = "Compartment",
                values_to = "Value") %>%
@@ -256,3 +227,27 @@ outoneYear %>%
          y = "Compartment Size",
          color = "Compartment") +
     ashokTheme
+
+## ▂▃▅▇█▓▒░۩۞۩ Plots of Point Prevalence and Incidence Proportion ۩۞۩░▒▓█▇▅▃▂
+epidemicStatisticPlots <-
+  with(
+    list(
+      plotData = 
+        mutate(sird1YearResults,
+              N = sum(S, I, R),
+              pointPrevalence = I / N,
+              pointPrevalenceRate = pointPrevalence - lag(pointPrevalence),
+              incidenceProportion = (I - lag(I)) / N)
+    ),
+    list(
+      pointPrevalence = ggplot(plotData) +
+        geom_line(aes(x = date, y = pointPrevalence)) + 
+        ashokTheme,
+      pointPrevalenceRate = ggplot(plotData) +
+        geom_line(aes(x = date, y = pointPrevalenceRate)) +
+        ashokTheme,
+      incidenceProportion = ggplot(plotData) +
+        geom_line(aes(x = date, y = incidenceProportion)) +
+        ashokTheme
+    )
+  )
