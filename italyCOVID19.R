@@ -1,3 +1,15 @@
+library(tidyverse)
+library(magrittr)
+library(COVID19)
+library(deSolve)
+library(optimx)
+library(countrycode)
+library(gridExtra)
+
+## Used to cache function results from covid19, so data is only downloaded once
+## without needing to assign it to an object ourselves.
+library(memoise)
+
 ## This is included just in case you don't run the files in their sorted order.
 source("0.ashok_ggplot_theme.R")
 source("0.COVID-19_in_Italy_functions.R")

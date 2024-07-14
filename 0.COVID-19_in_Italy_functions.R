@@ -1,15 +1,3 @@
-library(tidyverse)
-library(magrittr)
-library(COVID19)
-library(deSolve)
-library(optimx)
-library(countrycode)
-library(gridExtra)
-
-## Used to cache function results from covid19, so data is only downloaded once
-## without needing to assign it to an object ourselves.
-library(memoise)
-
 ## https://covid19datahub.io/articles/docs.html#epidemiological-variables
 ##
 ## All variables are cumulative except hosp, icu, vent, and population;
